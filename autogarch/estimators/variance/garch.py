@@ -1,9 +1,14 @@
 import numpy as np
-from numpy.typing import ArrayLike
+
 from typing import Optional
+
+from numpy.typing import ArrayLike
 from scipy.optimize import minimize
 
-class GARCH:
+from .variance_estimator import VarianceEstimator
+
+
+class GARCH(VarianceEstimator):
     def __init__(self, p: int = 1, q: int = 1):
         if p < 0 or q < 0:
             raise ValueError("Orders p and q must be non-negative integers.")
