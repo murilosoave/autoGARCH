@@ -6,10 +6,10 @@ from numpy.typing import ArrayLike
 from scipy.optimize import minimize
 from scipy.special import gammaln
 
-from .variance_estimator import VarianceEstimator
+from .variance_estimator_interface import VarianceEstimatorInterface
 
 
-class GARCH(VarianceEstimator):
+class GARCH(VarianceEstimatorInterface):
     def __init__(self, p: int = 1, q: int = 1, distribution: str = "normal"):
         if p < 0 or q < 0:
             raise ValueError("Orders p and q must be non-negative integers.")
