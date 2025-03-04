@@ -4,16 +4,20 @@ from typing import Optional
 
 from numpy.typing import ArrayLike
 from scipy.optimize import minimize
+from scipy.special import gammaln
 
 from .variance_estimator import VarianceEstimator
 
 
 class GARCH(VarianceEstimator):
-    def __init__(self, p: int = 1, q: int = 1):
+    def __init__(self, p: int = 1, q: int = 1, distribution: str = "normal"):
         if p < 0 or q < 0:
             raise ValueError("Orders p and q must be non-negative integers.")
+        if distribution not in ("normal", "t"):
+            raise ValueError("Distribution must be 'normal' or 't'.")
         self.p: int = p
         self.q: int = q
+        self.distribution: str = distribution
         self.parameters_: Optional[np.ndarray] = None
         self.conditional_volatility_: Optional[np.ndarray] = None
         self.log_likelihood_: Optional[float] = None
@@ -35,6 +39,9 @@ class GARCH(VarianceEstimator):
         self._data = data
         # Number of parameters (omega + q alphas + p betas)
         param_count = 1 + self.q + self.p
+        # If distribution='t', we estimate the degrees of freedom as an extra parameter.
+        if self.distribution == "t":
+            param_count += 1
         # Default initial guess if none provided
         if initial_params is None:
             data_var = np.var(data, ddof=1) if n > 1 else (data[0]**2 if n > 0 else 1.0)
@@ -50,13 +57,19 @@ class GARCH(VarianceEstimator):
             if self.p > 0:
                 beta0 = 0.8 / self.p
                 initial_guess += [beta0] * self.p
+            # Initial guess for degrees of freedom (only for t-distribution)
+            if self.distribution == "t":
+                initial_guess.append(8.0)
             initial_params = np.array(initial_guess, dtype=float)
         else:
             initial_params = np.array(initial_params, dtype=float)
             if initial_params.size != param_count:
                 raise ValueError(f"Initial parameters must have length {param_count} (got {initial_params.size}).")
         # Set bounds to enforce positivity: omega > 0, alphas >= 0, betas >= 0
-        bounds = [(1e-12, None)] + [(0.0, None)] * (param_count - 1)
+        if self.distribution == "t":
+            bounds = [(1e-12, None)] + [(0.0, None)] * (param_count - 2) + [(2.001, None)]
+        elif self.distribution == "normal":
+            bounds = [(1e-12, None)] + [(0.0, None)] * (param_count - 1)
         # Optimize negative log-likelihood
         result = minimize(
             self._negative_log_likelihood,
@@ -79,9 +92,17 @@ class GARCH(VarianceEstimator):
             raise ValueError("Model must be fitted before forecasting.")
         if steps < 1:
             raise ValueError("Number of steps to forecast must be at least 1.")
-        omega = self.parameters_[0]
-        alphas = self.parameters_[1:1+self.q]
-        betas = self.parameters_[1+self.q:]
+        
+        if self.distribution == "t":
+            # GARCH part are all but the last param
+            garch_param_count = 1 + self.q + self.p
+            garch_params = self.parameters_[:garch_param_count]
+        else:
+            garch_params = self.parameters_
+
+        omega = garch_params[0]
+        alphas = garch_params[1:1+self.q]
+        betas = garch_params[1+self.q:]
         n = self._data.shape[0]
         # Prepare arrays for extended variances (h) and squared residuals (e2)
         h_ext = np.empty(n + steps)
@@ -108,10 +129,17 @@ class GARCH(VarianceEstimator):
         return np.sqrt(h_ext[n:n+steps])
     
     def _compute_conditional_variances(self, data: np.ndarray, params: np.ndarray) -> np.ndarray:
+        if self.distribution == "t":
+            # GARCH part are all but the last param
+            garch_param_count = 1 + self.q + self.p
+            garch_params = params[:garch_param_count]
+        else:
+            garch_params = params
+
         n = data.shape[0]
-        omega = params[0]
-        alphas = params[1:1+self.q] if self.q > 0 else np.array([])
-        betas = params[1+self.q:] if self.p > 0 else np.array([])
+        omega = garch_params[0]
+        alphas = garch_params[1:1+self.q] if self.q > 0 else np.array([])
+        betas = garch_params[1+self.q:] if self.p > 0 else np.array([])
         h = np.empty(n)
         # Determine initial variance h[0]
         sum_alphas = alphas.sum() if alphas.size > 0 else 0.0
@@ -144,6 +172,20 @@ class GARCH(VarianceEstimator):
     
     def _negative_log_likelihood(self, params: np.ndarray, data: np.ndarray) -> float:
         h = self._compute_conditional_variances(data, params)
-        nll = 0.5 * np.sum(np.log(2 * np.pi) + np.log(h) + (data**2) / h)
+
+        if self.distribution == "normal":
+            nll = 0.5 * np.sum(np.log(2 * np.pi) + np.log(h) + (data**2) / h)
+        elif self.distribution == "t":
+            nu = params[-1]
+            n = data.shape[0]
+
+            logC = gammaln((nu + 1)/2) - gammaln(nu / 2) - 0.5*np.log(nu*np.pi)
+            
+            term1 = -0.5 * np.sum(np.log(h))
+            term2 = -((nu + 1)/2) * np.sum(
+                np.log(1.0 + (data**2)/((nu - 2.0)*h))
+            )
+            ll = n * logC + term1 + term2
+            nll = -ll
 
         return nll
