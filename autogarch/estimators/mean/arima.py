@@ -1,6 +1,7 @@
 import numpy as np
 
 from math import log, pi
+from typing import Union
 
 from scipy import optimize
 from scipy.special import gammaln
@@ -36,16 +37,16 @@ class StudentTDistribution:
 
 
 class ARIMA:
-    def __init__(self, p=0, d=0, q=0, distribution='normal', df=None):
-        self.p = p
-        self.d = d
-        self.q = q
-        self.error_dist_name = distribution
-        self.df = df
+    def __init__(self, p: int = 0, d: int = 0, q: int = 0, distribution: str = 'normal', df: float = None):
+        self.p: int = p
+        self.d: int = d
+        self.q: int = q
+        self.error_dist_name: str = distribution
+        self.df: float = df
         if distribution == 'normal':
-            self.dist = NormalDistribution()
+            self.dist: Union[NormalDistribution, StudentTDistribution] = NormalDistribution()
         elif distribution == 'student-t':
-            self.dist = StudentTDistribution(df) if df is not None else None
+            self.dist: Union[NormalDistribution, StudentTDistribution] = StudentTDistribution(df) if df is not None else None
         else:
             raise ValueError("Unsupported error distribution. Choose 'normal' or 'student-t'.")
         self.phi = None
@@ -53,7 +54,7 @@ class ARIMA:
         self.sigma = None
         self.df_estimated = None
 
-    def fit(self, X):
+    def fit(self, X: np.ndarray) -> "ARIMA":
         series = np.asarray(X, dtype=float)
         if len(series) - self.d <= max(self.p, self.q):
             raise ValueError("Time series is too short for the specified ARIMA(p,d,q) model.")
@@ -95,7 +96,9 @@ class ARIMA:
         else:
             self.df_estimated = None
 
-    def predict(self, steps=1):
+        return self
+
+    def predict(self, steps: int = 1) -> np.ndarray:
         if self.phi is None or self.sigma is None:
             raise RuntimeError("Model must be fitted before forecasting.")
         forecasts = []
@@ -108,7 +111,7 @@ class ARIMA:
             last_y.append(forecast)
         return np.array(forecasts)
 
-    def _difference_series(self, series):
+    def _difference_series(self, series: np.ndarray) -> np.ndarray:
         data = np.asarray(series, dtype=float)
         last_vals = []  
         if self.d > 0:
@@ -123,7 +126,7 @@ class ARIMA:
 
         return y_diff
 
-    def _compute_residuals(self, y_diff, phi, theta):
+    def _compute_residuals(self, y_diff: np.ndarray, phi: np.ndarray, theta: np.ndarray) -> np.ndarray:
         n = len(y_diff)
         residuals = np.zeros(n)
         for t in range(n):
@@ -133,7 +136,7 @@ class ARIMA:
 
         return residuals
 
-    def _neg_log_likelihood(self, params, y_diff):
+    def _neg_log_likelihood(self, params: list, y_diff: np.ndarray) -> float:
         p, q = self.p, self.q
         phi = params[:p] if p > 0 else np.array([])
         theta = params[p:p+q] if q > 0 else np.array([])
