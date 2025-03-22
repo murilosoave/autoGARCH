@@ -13,12 +13,14 @@ class ARIMA(MeanEstimatorInterface):
         self.q: int = q
         self.model: SM_ARIMA = None
         self.model_results: ARIMAResults = None
+        self.residuals: np.ndarray = None
 
     def fit(self, X: np.ndarray) -> "ARIMA":
         X_array = np.asarray(X, dtype=float)
         
         self.model = SM_ARIMA(X_array, order=(self.p, self.d, self.q))
         self.model_results = self.model.fit()
+        self.residuals = self.model_results.resid
 
         return self
 
