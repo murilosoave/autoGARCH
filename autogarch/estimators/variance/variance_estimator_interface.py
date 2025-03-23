@@ -15,3 +15,13 @@ class VarianceEstimatorInterface(ABC):
     @abstractmethod
     def predict(self, steps: int):
         raise NotImplementedError
+    
+    @abstractmethod
+    def confidence_intervals(self, alpha: float):
+        raise NotImplementedError
+    
+    def set_params(self, **kwargs):
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+        
+        return self
