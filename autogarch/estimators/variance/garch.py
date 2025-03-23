@@ -49,3 +49,11 @@ class GARCH(VarianceEstimatorInterface):
         forecast = self.model_results.forecast(horizon=steps)
 
         return forecast.variance.values
+    
+    def confidence_intervals(self, alpha: float = 0.05):
+        if self.model_results is None:
+            raise ValueError("Model must be fitted before computing confidence intervals.")
+        
+        ci = self.model_results.conf_int(alpha=alpha)
+
+        return ci
