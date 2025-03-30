@@ -2,9 +2,10 @@ import numpy as np
 
 from typing import Union
 
-from autoGARCH.autogarch.estimators.mean.mean import Mean
-from autoGARCH.autogarch.estimators.variance.variance import Variance
+from autogarch.estimators.mean.mean import Mean
+from autogarch.estimators.variance.variance import Variance
 from autogarch.metrics.metric import Metric
+from autogarch.tuners.tuner import Tuner
 
 
 class Pipeline:
@@ -14,6 +15,7 @@ class Pipeline:
         self.mean_estimator: Mean = None
         self.variance_estimator: Variance = None
         self.metrics: list = []
+        self.tuner: Tuner = None
         self.fitted: bool = False
 
     def add(
@@ -27,6 +29,12 @@ class Pipeline:
             self.variance_estimators[object] = kwargs
         elif object.type_ == "metric":
             self.metrics.append(object(**kwargs))
+        elif object.type_ == "tuner":
+            if not isinstance(object, Tuner):
+                raise ValueError("Tuner must be an instance of Tuner.")
+            if self.tuner is not None:
+                raise ValueError("Pipeline can only have one tuner.")
+            self.tuner = object(**kwargs)
         else:
             raise ValueError("Invalid estimator type.")
         
