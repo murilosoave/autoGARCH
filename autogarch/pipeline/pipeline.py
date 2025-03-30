@@ -2,8 +2,8 @@ import numpy as np
 
 from typing import Union
 
-from autogarch.estimators.mean.mean_estimator_interface import MeanEstimatorInterface
-from autogarch.estimators.variance.variance_estimator_interface import VarianceEstimatorInterface
+from autoGARCH.autogarch.estimators.mean.mean import Mean
+from autoGARCH.autogarch.estimators.variance.variance import Variance
 from autogarch.metrics.metric import Metric
 
 
@@ -11,14 +11,14 @@ class Pipeline:
     def __init__(self):
         self.mean_estimators: dict = {}
         self.variance_estimators: dict = {}
-        self.mean_estimator: MeanEstimatorInterface = None
-        self.variance_estimator: VarianceEstimatorInterface = None
+        self.mean_estimator: Mean = None
+        self.variance_estimator: Variance = None
         self.metrics: list = []
         self.fitted: bool = False
 
     def add(
         self,
-        object: Union[MeanEstimatorInterface, VarianceEstimatorInterface, Metric],
+        object: Union[Mean, Variance, Metric],
         **kwargs
     ) -> "Pipeline":
         if object.type_ == "mean_estimator":

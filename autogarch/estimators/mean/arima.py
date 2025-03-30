@@ -3,10 +3,10 @@ import numpy as np
 from statsmodels.tsa.arima.model import ARIMA as SM_ARIMA
 from statsmodels.tsa.arima.model import ARIMAResults
 
-from .mean_estimator_interface import MeanEstimatorInterface
+from .mean import Mean
 
 
-class ARIMA(MeanEstimatorInterface):
+class ARIMA(Mean):
     def __init__(self, p: int = 0, d: int = 0, q: int = 0):
         self.p: int = p
         self.d: int = d

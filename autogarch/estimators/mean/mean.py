@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from numpy.typing import ArrayLike
 
 
-class MeanEstimatorInterface(ABC):
+class Mean(ABC):
     type_: str = "mean_estimator"
     input_assumptions: list = []
     output_assumptions: list = []

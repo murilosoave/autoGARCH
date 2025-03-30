@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from numpy.typing import ArrayLike
 
 
-class VarianceEstimatorInterface(ABC):
+class Variance(ABC):
     type_: str = "variance_estimator"
     input_assumptions: list = []
     output_assumptions: list = []

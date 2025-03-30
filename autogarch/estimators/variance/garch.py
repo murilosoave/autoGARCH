@@ -5,10 +5,10 @@ from arch.univariate import HARX
 from arch.univariate.base import ARCHModelResult
 from numpy.typing import ArrayLike
 
-from .variance_estimator_interface import VarianceEstimatorInterface
+from .variance import Variance
 
 
-class GARCH(VarianceEstimatorInterface):
+class GARCH(Variance):
     def __init__(self, p: int = 1, q: int = 1, distribution: str = "normal"):
         if p < 0 or q < 0:
             raise ValueError("Orders p and q must be non-negative integers.")
