@@ -2,9 +2,10 @@ import numpy as np
 
 from typing import Union
 
-from autoGARCH.autogarch.estimators.mean.mean import Mean
-from autoGARCH.autogarch.estimators.variance.variance import Variance
+from autogarch.estimators.mean.mean import Mean
+from autogarch.estimators.variance.variance import Variance
 from autogarch.metrics.metric import Metric
+from autogarch.tuners.tuner import Tuner
 
 
 class Pipeline:
@@ -14,6 +15,7 @@ class Pipeline:
         self.mean_estimator: Mean = None
         self.variance_estimator: Variance = None
         self.metrics: list = []
+        self.tuner: dict[Tuner, dict] = None
         self.fitted: bool = False
 
     def add(
@@ -27,6 +29,12 @@ class Pipeline:
             self.variance_estimators[object] = kwargs
         elif object.type_ == "metric":
             self.metrics.append(object(**kwargs))
+        elif object.type_ == "tuner":
+            if not isinstance(object, Tuner):
+                raise ValueError("Tuner must be an instance of Tuner.")
+            if self.tuner is not None:
+                raise ValueError("Pipeline can only have one tuner.")
+            self.tuner = {object: kwargs}
         else:
             raise ValueError("Invalid estimator type.")
         
@@ -37,30 +45,23 @@ class Pipeline:
             raise RuntimeError("Pipeline must contain at least one mean and one variance estimator.")
         
         X_array = np.asarray(X, dtype=float)
-        results = {"mean": {}, "variance": {}}
+
+        tuner_class = self.tuner.popitem()[0]
+        tuner_params = self.tuner.popitem()[1]
+
+        tuner = tuner_class(**tuner_params)
         for mean_estimator_class, mean_estimator_params in self.mean_estimators.items():
             for variance_estimator_class, variance_estimator_params in self.variance_estimators.items():
-                mean_estimator_class.set_params(**mean_estimator_params)
-                variance_estimator_class.set_params(**variance_estimator_params)
-                mean_estimator_class.fit(X_array)
-                variance_estimator_class.fit(mean_estimator_class.residuals)
-
-                results["mean"][str(mean_estimator_params)] = {
-                    metric_class.__class__.__name__: metric_class.calculate(mean_estimator_class.residuals)
-                    for metric_class in self.metrics
-                }
-                results["variance"][str(variance_estimator_params)] = {
-                    metric_class.__class__.__name__: metric_class.calculate(variance_estimator_class.residuals)
-                    for metric_class in self.metrics
-                }
-
-                self.best_mean_estimator = min(results["mean"], key=lambda x: results["mean"][x])
-                self.best_variance_estimator = min(results["variance"], key=lambda x: results["variance"][x])
-
-                self.mean_estimator = mean_estimator_class.set_params(**mean_estimator_params)
-                self.variance_estimator = variance_estimator_class.set_params(**variance_estimator_params)
-
-        self.fitted = True
+                tuner.tune(
+                    mean_estimator_class,
+                    variance_estimator_class,
+                    X_array,
+                    hiperparameter_grid={
+                        **mean_estimator_params,
+                        **variance_estimator_params
+                    },
+                    n_iters=100,
+                )
 
         return self
     
